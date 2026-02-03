@@ -1,0 +1,60 @@
+services:
+  edge-net:
+    build: ./edge-net
+    container_name: edge-net
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - ./wireguard:/etc/wireguard:ro
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8081:8081"     # agent api (закрой фаерволом по IP контроллера)
+    command: ["./entrypoint.sh"]
+
+  traefik:
+    image: traefik:v3.1
+    container_name: edge-traefik
+    restart: unless-stopped
+    network_mode: "service:edge-net"
+    depends_on: [edge-net]
+    command:
+      - --api.dashboard=false
+
+      - --entryPoints.web.address=:80
+      - --entryPoints.websecure.address=:443
+
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+
+      - --log.level=INFO
+
+      # TLS: включай позже, когда настроишь DNS challenge
+      # - --certificatesresolvers.dnsresolver.acme.email=${ACME_EMAIL}
+      # - --certificatesresolvers.dnsresolver.acme.storage=/acme/acme.json
+      # - --certificatesresolvers.dnsresolver.acme.dnschallenge.provider=${DNS_PROVIDER}
+
+    volumes:
+      - ./traefik/dynamic:/etc/traefik/dynamic
+      - ./traefik/acme:/acme
+
+  proxy-agent:
+    build: ./proxy-agent
+    container_name: edge-agent
+    restart: unless-stopped
+    network_mode: "service:edge-net"
+    depends_on: [edge-net]
+    environment:
+      - AGENT_TOKEN=${AGENT_TOKEN}
+      - TRAEFIK_DYNAMIC_DIR=/etc/traefik/dynamic
+      - STATE_FILE=/data/state.json
+      - TRAEFIK_ENTRYPOINT=websecure
+      - TRAEFIK_CERTRESOLVER=dnsresolver
+    volumes:
+      - ./traefik/dynamic:/etc/traefik/dynamic
+      - ./agent-data:/data
