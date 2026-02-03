@@ -3,19 +3,14 @@ services:
     build: ./edge-net
     container_name: edge-net
     restart: unless-stopped
+    network_mode: host
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
-    sysctls:
-      - net.ipv4.ip_forward=1
     volumes:
       - /lib/modules:/lib/modules:ro
       - ./wireguard:/etc/wireguard:rw
       - ./agent-data:/data
-    ports:
-      - "80:80"
-      - "443:443"
-      - "8081:8081"     # agent api (закрой фаерволом по IP контроллера)
     env_file:
       - .env
     command: ["./entrypoint.sh"]
@@ -29,7 +24,7 @@ services:
     image: traefik:v3.1
     container_name: edge-traefik
     restart: unless-stopped
-    network_mode: "service:edge-net"
+    network_mode: host
     depends_on:
       edge-net:
         condition: service_healthy
@@ -41,14 +36,14 @@ services:
       - --providers.file.watch=true
       - --log.level=INFO
     volumes:
-      - ./traefik/dynamic:/etc/traefik/dynamic
-      - ./traefik/acme:/acme
+      - ./traefik/dynamic:/etc/traefik/dynamic:rw
+      - ./traefik/acme:/acme:rw
 
   proxy-agent:
     build: ./proxy-agent
     container_name: edge-agent
     restart: unless-stopped
-    network_mode: "service:edge-net"
+    network_mode: host
     depends_on:
       edge-net:
         condition: service_healthy
@@ -61,5 +56,5 @@ services:
       - TRAEFIK_ENTRYPOINT=websecure
       - TRAEFIK_CERTRESOLVER=dnsresolver
     volumes:
-      - ./traefik/dynamic:/etc/traefik/dynamic
-      - ./agent-data:/data
+      - ./traefik/dynamic:/etc/traefik/dynamic:rw
+      - ./agent-data:/data:rw
