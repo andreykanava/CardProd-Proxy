@@ -60,7 +60,8 @@ PY
 PROXY_IP="$(python3 -c 'import json; print(json.load(open("/data/join.json"))["node_ip"])')"
 CTRL_PUB="$(python3 -c 'import json; print(json.load(open("/data/join.json"))["controller_pubkey"])')"
 ENDPOINT="$(python3 -c 'import json; print(json.load(open("/data/join.json"))["endpoint"])')"
-ALLOWED="$(python3 -c 'import json; print(json.load(open("/data/join.json"))["allowed_ips"])')"
+WG_NET="$(python3 -c 'import json; print(json.load(open("/data/join.json"))["wg_net"])')"
+ALLOWED="${WG_NET}"
 
 if [ -z "$ENDPOINT" ] || [ "$ENDPOINT" = "None" ]; then
   echo "Controller did not provide WG_ENDPOINT"
@@ -78,7 +79,7 @@ PrivateKey = ${PRIVKEY}
 [Peer]
 PublicKey = ${CTRL_PUB}
 Endpoint = ${ENDPOINT}
-AllowedIPs = ${ALLOWED}
+AllowedIPs = 10.50.0.0/24
 PersistentKeepalive = 25
 EOF
 
